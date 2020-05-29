@@ -55,24 +55,25 @@ impl Session {
         // @TODO: scout if locator = "". For now, replace by "tcp/127.0.0.1:7447"
         let locator = if locator.is_empty() { "tcp/127.0.0.1:7447" } else { &locator };
 
-        let mut tx_session: Option<Arc<TxSession>> = None;
+        // let mut tx_session: Option<Arc<TxSession>> = None;
+        let tx_session: Option<Arc<TxSession>>;
 
         // @TODO: manage a tcp.port property (and tcp.interface?)
         // try to open TCP port 7447
-        if let Err(_err) = session_manager.add_locator(&"tcp/127.0.0.1:7447".parse().unwrap()).await {
-            // if failed, try to connect to peer on locator
-            println!("Unable to open listening TCP port on 127.0.0.1:7447. Try connection to {}", locator);
-            let attachment = None;
-            match session_manager.open_session(&locator.parse().unwrap(), &attachment).await {
-                Ok(s) => tx_session = Some(Arc::new(s)),
-                Err(err) => {
-                    println!("Unable to connect to {}! {:?}", locator, err);
-                    std::process::exit(-1);
-                }
+        // if let Err(_err) = session_manager.add_locator(&"tcp/127.0.0.1:7447".parse().unwrap()).await {
+        //     // if failed, try to connect to peer on locator
+        //     println!("Unable to open listening TCP port on 127.0.0.1:7447. Try connection to {}", locator);
+        let attachment = None;
+        match session_manager.open_session(&locator.parse().unwrap(), &attachment).await {
+            Ok(s) => tx_session = Some(Arc::new(s)),
+            Err(err) => {
+                println!("Unable to connect to {}! {:?}", locator, err);
+                std::process::exit(-1);
             }
-        } else {
-            println!("Listening on TCP: 127.0.0.1:7447.");
         }
+        // } else {
+        //     println!("Listening on TCP: 127.0.0.1:7447.");
+        // }
 
         let inner = Arc::new(RwLock::new(
             InnerSession::new(peerid)

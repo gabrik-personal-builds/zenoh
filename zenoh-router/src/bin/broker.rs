@@ -5,32 +5,42 @@ use rand::RngCore;
 use zenoh_protocol::core::PeerId;
 use zenoh_protocol::link::Locator;
 use zenoh_protocol::proto::whatami;
-use zenoh_protocol::session::{SessionManager, SessionManagerConfig, SessionManagerOptionalConfig};
+use zenoh_protocol::session::{SessionManager, SessionManagerConfig};
 use zenoh_router::routing::broker::Broker;
+
+fn print_usage(bin: String) {
+    println!(
+"Usage:
+    cargo run --release --bin {} <locator to listen on>
+Example: 
+    cargo run --release --bin {} tcp/127.0.0.1:7447",
+        bin, bin
+    );
+}
 
 fn main() {
     task::block_on(async {
         let mut args = std::env::args();
-        args.next(); // skip exe name
-    
-        let broker = Arc::new(Broker::new());
+        // Get exe name
+        let bin = args.next().unwrap();  
 
+        // Get next arg
+        let value = if let Some(value) = args.next() {
+            value
+        } else {
+            return print_usage(bin);
+        };
+        let listen_on: Locator = if let Ok(v) = value.parse() {
+            v
+        } else {
+            return print_usage(bin);
+        };
+
+        // Create the broker
+        let broker = Arc::new(Broker::new());
+        // Initialize the PID
         let mut pid = vec![0, 0, 0, 0];
         rand::thread_rng().fill_bytes(&mut pid);
-
-        let batch_size: Option<usize> = match args.next() { 
-            Some(size) => Some(size.parse().unwrap()),
-            None => None
-        };
-
-        let self_locator: Locator = match args.next() { 
-            Some(port) => {
-                let mut s = "tcp/127.0.0.1:".to_string();
-                s.push_str(&port);
-                s.parse().unwrap()
-            },
-            None => "tcp/127.0.0.1:7447".parse().unwrap()
-        };
     
         let config = SessionManagerConfig {
             version: 0,
@@ -38,19 +48,10 @@ fn main() {
             id: PeerId{id: pid},
             handler: broker.clone()
         };
-        let opt_config = SessionManagerOptionalConfig {
-            lease: None,
-            sn_resolution: None,
-            batchsize: batch_size,
-            timeout: None,
-            retries: None,
-            max_sessions: None,
-            max_links: None 
-        };
-        let manager = SessionManager::new(config, Some(opt_config));
+        let manager = SessionManager::new(config, None);
 
-        if let Err(_err) = manager.add_locator(&self_locator).await {
-            println!("Unable to open listening {}!", self_locator);
+        if let Err(_err) = manager.add_locator(&listen_on).await {
+            println!("Unable to open listening {}!", listen_on);
             std::process::exit(-1);
         }
 
